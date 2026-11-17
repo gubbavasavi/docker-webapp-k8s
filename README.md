@@ -156,6 +156,25 @@ pipeline {
 }
 ```
 
+Important Note – Environment Variables & Credentials
+
+Instead of hardcoding Nexus details directly in the pipeline, we can use Jenkins Environment Variables.
+
+Define the Nexus URL and repository name inside the environment block of the Jenkinsfile.
+
+Example:
+
+environment {
+    NEXUS_URL = '3.110.80.236:8081'
+    NEXUS_REPO = 'mymavenrepo'
+}
+
+Use these variables wherever required in the pipeline:
+
+nexusUrl: "${NEXUS_URL}",
+nexusRepositoryId: "${NEXUS_REPO}"
+
+
 ### **Pipeline Stage Explanation**
 
 | Stage | Description |
@@ -390,7 +409,7 @@ export KOPS_STATE_STORE=s3://<your-bucket-name>
 **Create the Kubernetes cluster:**
 
 ```bash
-kops create cluster --name vasav.k8s.local \
+kops create cluster --name vasavi.k8s.local \
   --zones us-east-2a,us-east-2b \
   --master-count 1 --master-size m7i-flex.large --master-volume-size 30 \
   --node-count 2 --node-size c7i-flex.large --node-volume-size 25 \
@@ -400,7 +419,7 @@ kops create cluster --name vasav.k8s.local \
 **Apply the cluster configuration:**
 
 ```bash
-kops update cluster --name vasavii.k8s.local --yes --admin
+kops update cluster --name vasavi.k8s.local --yes --admin
 ```
 
 **Verify Kubernetes nodes:**
@@ -531,7 +550,7 @@ kubectl get all -n vprofile
 
 ---
 
-# **8. Jenkins Plugins Required**
+# ** Jenkins Plugins Required**
 
 Install the following plugins in Jenkins:
 
@@ -551,7 +570,7 @@ chmod 777 /var/run/docker.sock
 
 **Note:** This grants broad access to the Docker daemon and is not recommended for production. Prefer configuring appropriate group permissions for Jenkins.
 
-# **9. Jenkins Credentials Configuration**
+# ** Jenkins Credentials Configuration**
 
 Create the following credentials in Jenkins:
 
