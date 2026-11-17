@@ -265,7 +265,7 @@ export KOPS_STATE_STORE=s3://<your-bucket-name>
 **Create the Kubernetes cluster:**
 
 ```bash
-kops create cluster --name vamsi.k8s.local \
+kops create cluster --name vasavi.k8s.local \
   --zones us-east-2a,us-east-2b \
   --master-count 1 --master-size m7i-flex.large --master-volume-size 30 \
   --node-count 2 --node-size c7i-flex.large --node-volume-size 25 \
@@ -275,7 +275,7 @@ kops create cluster --name vamsi.k8s.local \
 **Apply the cluster configuration:**
 
 ```bash
-kops update cluster --name vamsi.k8s.local --yes --admin
+kops update cluster --name vasavi.k8s.local --yes --admin
 ```
 
 **Verify Kubernetes nodes:**
