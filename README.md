@@ -1,4 +1,4 @@
-# **VProfile DevOps Project – End-to-End CI/CD Pipeline**
+# ** DevOps Project – End-to-End CI/CD Pipeline**
 
 ## **1. Project Overview**
 
@@ -48,8 +48,8 @@ The project automates application building, testing, code quality analysis, arti
 - Argo CD is installed in the `argocd` namespace on the kOps cluster.
 - The `argocd-server` service is exposed using a LoadBalancer.
 - Jenkins publishes the following Docker images to Docker Hub:
-  - `vamsikrishnakakani/k8s-java:dbimage`
-  - `vamsikrishnakakani/k8s-java:appimage`
+  - `vasavigubba/k8s-javaproject:app-image`
+  - `vasavigubba/k8s-javaproject:db-image`
 - Kubernetes manifests reference these Docker images.
 - Argo CD synchronizes Kubernetes manifests from GitHub and deploys the application into the `vprofile` namespace.
 - Any changes committed to the Kubernetes manifests in GitHub can automatically be reflected in the cluster through GitOps synchronization.
