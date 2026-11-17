@@ -156,7 +156,7 @@ pipeline {
 }
 ```
 
-Important Note – Environment Variables & Credentials
+### **Important Note – Environment Variables & Credentials** ###
 
 Instead of hardcoding Nexus details directly in the pipeline, we can use Jenkins Environment Variables.
 
