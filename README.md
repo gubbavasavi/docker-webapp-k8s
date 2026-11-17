@@ -1,10 +1,10 @@
-# ** DevOps Project – End-to-End CI/CD Pipeline**
+# ** DevOps K8S Project – End-to-End CI/CD Pipeline**
 
 ## **1. Project Overview**
 
-This project demonstrates an end-to-end DevOps implementation using Jenkins, Docker, Kubernetes, Argo CD, and monitoring tools.
+This project demonstrates an end-to-end DevOps implementation using Jenkins, Docker, Kubernetes, and AWS.
 
-The project automates application building, testing, code quality analysis, artifact management, containerization, deployment, and monitoring.
+The project automates application building, testing, code quality analysis, artifact management, containerization, security scanning, and deployment.
 
 ## **2. Technology Stack**
 
@@ -32,18 +32,147 @@ The project automates application building, testing, code quality analysis, arti
 2. Jenkins fetches the source code from the GitHub repository.
 3. Maven builds the application and generates the WAR artifact.
 4. SonarQube performs code quality analysis.
-5. Nexus stores the generated WAR artifact.
-6. Jenkins builds Docker images for the application and database.
-7. Trivy scans Docker images for vulnerabilities.
-8. Docker images are pushed to Docker Hub.
-9. Kubernetes manifests are maintained in GitHub.
-10. Argo CD monitors the Git repository and synchronizes the manifests with the Kubernetes cluster.
-11. Prometheus collects cluster and application metrics.
-12. Grafana displays monitoring dashboards and alerts.
+5. SonarQube Quality Gates validate the code quality.
+6. Nexus stores the generated WAR artifact.
+7. Jenkins builds Docker images for the application and database.
+8. Trivy scans Docker images for vulnerabilities.
+9. Docker images are pushed to Docker Hub.
+10. Docker Compose deploys the application and database containers.
+11. Kubernetes manifests are maintained in GitHub.
+12. Argo CD synchronizes the manifests and deploys the application into Kubernetes.
+13. Prometheus and Grafana monitor cluster and application health.
 
 ---
 
-# **4. Deployment – Argo CD (Continuous Deployment)**
+## **4. Jenkins CI/CD Pipeline**
+
+Jenkins is used to automate the complete Continuous Integration process and application deployment.
+
+The Jenkins pipeline performs the following activities:
+
+- **Git Checkout:** Retrieves application source code from GitHub.
+- **Maven Build:** Compiles the application and generates the WAR file.
+- **SonarQube Analysis:** Performs static code analysis.
+- **Quality Gate:** Checks whether the code meets the defined quality standards.
+- **Nexus Upload:** Uploads the generated WAR artifact to Nexus Repository Manager.
+- **Docker Build:** Builds application and database Docker images.
+- **Trivy Scan:** Scans Docker images for security vulnerabilities.
+- **Docker Hub Push:** Pushes the Docker images to Docker Hub.
+- **Docker Compose Deployment:** Deploys the application using Docker Compose.
+
+### **Jenkinsfile**
+
+```groovy
+pipeline {
+    agent any
+
+    tools {
+        maven "mymaven"
+    }
+
+    stages {
+
+        stage('Getting code from git') {
+            steps {
+                git branch: 'main',
+                    url: 'https://github.com/gubbavasavi/docker-webapp-k8s.git'
+            }
+        }
+
+        stage('build code using maven') {
+            steps {
+                sh 'mvn clean install'
+            }
+        }
+
+        stage('QCA by sonarqube') {
+            steps {
+                withSonarQubeEnv('mysonar') {
+                    sh "mvn clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=myproject -Dsonar.projectName='myproject'"
+                }
+            }
+        }
+
+        stage('Quality gates by Sonarqube') {
+            steps {
+                waitForQualityGate abortPipeline: true,
+                    credentialsId: 'sonarcred'
+            }
+        }
+
+        stage('Artifact Upload by Nexus') {
+            steps {
+                script {
+                    def pom = readMavenPom file: 'pom.xml'
+
+                    nexusArtifactUploader(
+                        artifacts: [[
+                            artifactId: pom.artifactId,
+                            classifier: '',
+                            file: "target/${pom.artifactId}-${pom.version}.war",
+                            type: 'war'
+                        ]],
+                        credentialsId: 'nexuscred',
+                        groupId: pom.groupId,
+                        nexusUrl: '3.110.80.236:8081',
+                        nexusVersion: 'nexus3',
+                        protocol: 'http',
+                        repository: 'mymavenrepo',
+                        version: pom.version
+                    )
+                }
+            }
+        }
+
+        stage('Building Docker Images') {
+            steps {
+                sh 'docker build -t vasavigubba/k8s-javaproject:app-image .'
+                sh 'docker build -t vasavigubba/k8s-javaproject:db-image Docker-db'
+            }
+        }
+
+        stage('Scan Images with Trivy') {
+            steps {
+                sh 'trivy image vasavigubba/k8s-javaproject:app-image >> app-image-logs.txt'
+                sh 'trivy image vasavigubba/k8s-javaproject:db-image >> db-image-logs.txt'
+            }
+        }
+
+        stage('Pushing Images to Docker Hub') {
+            steps {
+                withDockerRegistry(credentialsId: 'dockercred') {
+                    sh 'docker push vasavigubba/k8s-javaproject:app-image'
+                    sh 'docker push vasavigubba/k8s-javaproject:db-image'
+                }
+            }
+        }
+
+        stage('Deploy using Compose') {
+            steps {
+                sh 'docker compose up -d'
+            }
+        }
+    }
+}
+```
+
+### **Pipeline Stage Explanation**
+
+| Stage | Description |
+|---|---|
+| Getting code from Git | Clones the application repository from GitHub |
+| Maven Build | Builds the Java application and generates the WAR artifact |
+| SonarQube Analysis | Performs code quality analysis |
+| Quality Gate | Validates the SonarQube quality gate status |
+| Nexus Upload | Uploads the WAR artifact to Nexus |
+| Building Docker Images | Builds application and database images |
+| Trivy Scan | Scans Docker images for vulnerabilities |
+| Docker Hub Push | Publishes Docker images to Docker Hub |
+| Deploy using Compose | Starts application and database containers |
+
+---
+
+## **5. Deployment – Argo CD (Continuous Deployment)**
 
 - Argo CD is installed in the `argocd` namespace on the kOps cluster.
 - The `argocd-server` service is exposed using a LoadBalancer.
@@ -52,9 +181,9 @@ The project automates application building, testing, code quality analysis, arti
   - `vasavigubba/k8s-javaproject:db-image`
 - Kubernetes manifests reference these Docker images.
 - Argo CD synchronizes Kubernetes manifests from GitHub and deploys the application into the `vprofile` namespace.
-- Any changes committed to the Kubernetes manifests in GitHub can automatically be reflected in the cluster through GitOps synchronization.
+- Changes committed to Kubernetes manifests in GitHub can automatically be reflected in the cluster through GitOps synchronization.
 
-# **5. Monitoring**
+## **6. Monitoring**
 
 - Metrics Server is installed for Kubernetes resource monitoring using `kubectl top`.
 - The `kube-prometheus-stack` is installed using Helm.
@@ -67,7 +196,7 @@ The project automates application building, testing, code quality analysis, arti
 
 ---
 
-# **6. Setup Guide**
+# **7. Setup Guide**
 
 ## **Step 1: Jenkins + Docker + Git (Amazon Linux)**
 
@@ -122,9 +251,7 @@ cat /var/lib/jenkins/secrets/initialAdminPassword
 
 **Access Jenkins:**
 
-```text
-http://<server-ip>:8080
-```
+`http://<server-ip>:8080`
 
 ## **Step 2: SonarQube (Docker)**
 
@@ -142,9 +269,7 @@ docker ps
 
 **Access SonarQube:**
 
-```text
-http://<server-ip>:9000
-```
+`http://<server-ip>:9000`
 
 ## **Step 3: Nexus Repository Manager**
 
@@ -265,7 +390,7 @@ export KOPS_STATE_STORE=s3://<your-bucket-name>
 **Create the Kubernetes cluster:**
 
 ```bash
-kops create cluster --name vasavi.k8s.local \
+kops create cluster --name vasav.k8s.local \
   --zones us-east-2a,us-east-2b \
   --master-count 1 --master-size m7i-flex.large --master-volume-size 30 \
   --node-count 2 --node-size c7i-flex.large --node-volume-size 25 \
@@ -275,7 +400,7 @@ kops create cluster --name vasavi.k8s.local \
 **Apply the cluster configuration:**
 
 ```bash
-kops update cluster --name vasavi.k8s.local --yes --admin
+kops update cluster --name vasavii.k8s.local --yes --admin
 ```
 
 **Verify Kubernetes nodes:**
@@ -362,8 +487,6 @@ helm version
 helm install prometheus oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
 ```
 
-This installs Prometheus, Grafana, Alertmanager and related monitoring components.
-
 **Expose Grafana using a LoadBalancer:**
 
 ```bash
@@ -408,7 +531,7 @@ kubectl get all -n vprofile
 
 ---
 
-# **7. Jenkins Plugins Required**
+# **8. Jenkins Plugins Required**
 
 Install the following plugins in Jenkins:
 
@@ -428,7 +551,7 @@ chmod 777 /var/run/docker.sock
 
 **Note:** This grants broad access to the Docker daemon and is not recommended for production. Prefer configuring appropriate group permissions for Jenkins.
 
-# **8. Jenkins Credentials Configuration**
+# **9. Jenkins Credentials Configuration**
 
 Create the following credentials in Jenkins:
 
@@ -441,7 +564,7 @@ Create the following credentials in Jenkins:
 
 **GitHub Credentials:**
 - Required when accessing private repositories.
-- Configure the repository credentials in Jenkins.
+- Configure repository credentials in Jenkins.
 
 **Nexus Credentials:**
 - Add Nexus username and password.
@@ -458,7 +581,7 @@ Create the following credentials in Jenkins:
 
 ---
 
-# **9. Final Project Outcome**
+# **10. Final Project Outcome**
 
 This project demonstrates an automated DevOps workflow covering:
 
